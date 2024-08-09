@@ -1,432 +1,435 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <title>津波痕跡高マップ（津波痕跡高情報）</title>
-        <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-        <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
-        <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
-        <script src="https://unpkg.com/pmtiles@2.11.0/dist/index.js"></script>
-        <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.min.js"></script>
-        <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.css" type="text/css" />
-        <script src="https://cdn.jsdelivr.net/npm/@turf/turf@5/turf.min.js"></script>
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-            }
 
-            #map {
-                position: absolute;
-                top: 0;
-                bottom: 0;
-                width: 100%;
-            }
+<head>
+    <meta charset="utf-8" />
+    <title>津波痕跡高マップ（津波痕跡高情報）</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@2.11.0/dist/index.js"></script>
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.css"
+        type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@5/turf.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
 
-            .map-overlay {
-                font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
-                position: absolute;
-                width: 240px;
-                bottom: 30px;
-                left: 0;
-                padding: 10px;
-            }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
 
-            .map-overlay .map-overlay-inner {
-                background-color: #fff;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-                border-radius: 3px;
-                padding: 10px;
-                margin-bottom: 10px;
-            }
+        .map-overlay {
+            font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            position: absolute;
+            width: 240px;
+            bottom: 30px;
+            left: 0;
+            padding: 10px;
+        }
 
-            .map-overlay label {
-                display: block;
-                margin: 0 0 0px;
-            }
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
 
-            .map-overlay input {
-                background-color: transparent;
-                display: inline-block;
-                width: 100%;
-                position: relative;
-                margin: 0;
-                cursor: ew-resize;
-            }
+        .map-overlay label {
+            display: block;
+            margin: 0 0 0px;
+        }
 
-            .maplibregl-popup .maplibregl-popup-content {
-                padding: 8px 10px;
-                font: 12px/14px Arial, Helvetica, sans-serif;
-                color: black;
-                background: white;
-                background: rgba(255, 255, 255, 0.9);
-                box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
-                border-radius: 5px;
-                width: 240x;
-            }
-        </style>
-    </head>
+        .map-overlay input {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
 
-    <body>
-        <div id="map"></div>
-        <script type="module">
-            // Terrain-RGB形式への変換モジュール
-            import { makeNumPngProtocol } from './numPngProtocol.js';
-            maplibregl.addProtocol('numpng', makeNumPngProtocol());
+        .maplibregl-popup .maplibregl-popup-content {
+            padding: 8px 10px;
+            font: 12px/14px Arial, Helvetica, sans-serif;
+            color: black;
+            background: white;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            width: 240x;
+        }
+    </style>
+</head>
 
-            // addProtocolの設定
-            let protocol = new pmtiles.Protocol();
-            maplibregl.addProtocol('pmtiles', protocol.tile);
+<body>
+    <div id="map"></div>
+    <script type="module">
+        // Terrain-RGB形式への変換モジュール
+        import { makeNumPngProtocol } from './numPngProtocol.js';
+        maplibregl.addProtocol('numpng', makeNumPngProtocol());
 
-            // マップの初期化
-            var map = new maplibregl.Map({
-                container: 'map',
-                // style: './building3d.json',
-                style: './building3ddark.json',
-                // style: './building3dphoto.json',
-                // style: 'https://tile2.openstreetmap.jp/styles/osm-bright-ja/style.json',
-                center: [141.47434, 38.33651],
-                zoom: 13.62,
-                pitch: 63,
-                bearing: 14.4,
-                maxPitch: 85,
-                hash: true,
-                attributionControl: false,
+        // addProtocolの設定
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol('pmtiles', protocol.tile);
+
+        // マップの初期化
+        var map = new maplibregl.Map({
+            container: 'map',
+            // style: './building3d.json',
+            style: './building3ddark.json',
+            // style: './building3dphoto.json',
+            // style: 'https://tile2.openstreetmap.jp/styles/osm-bright-ja/style.json',
+            center: [141.47434, 38.33651],
+            zoom: 13.62,
+            pitch: 63,
+            bearing: 14.4,
+            maxPitch: 85,
+            hash: true,
+            attributionControl: false,
+        });
+
+        // ズーム・回転
+        map.addControl(new maplibregl.NavigationControl());
+
+        // フルスクリーンモードのオンオフ
+        map.addControl(new maplibregl.FullscreenControl());
+
+        // 現在位置表示
+        map.addControl(
+            new maplibregl.GeolocateControl({
+                positionOptions: {
+                    enableHighAccuracy: false,
+                },
+                fitBoundsOptions: { maxZoom: 18 },
+                trackUserLocation: true,
+                showUserLocation: true,
+            })
+        );
+
+        // スケール表示
+        map.addControl(
+            new maplibregl.ScaleControl({
+                maxWidth: 200,
+                unit: 'metric',
+            })
+        );
+
+        // Attributionを折りたたみ表示
+        map.addControl(
+            new maplibregl.AttributionControl({
+                compact: true,
+                customAttribution: '（<a href="https://twitter.com/shi__works" target="_blank">X(旧Twitter)</a> | <a href="https://github.com/shiwaku/tsunami-trace-map-on-maplibre" target="_blank">Github</a>） ',
+            })
+        );
+
+        // 3D地形コントロール
+        map.addControl(
+            new maplibregl.TerrainControl({
+                source: 'aist-dem',
+                exaggeration: 1, // 標高を強調する倍率
+            })
+        );
+
+        //ジオコーダー（国土地理院 地名検索API）
+        var geocoder_api = {
+            forwardGeocode: async (config) => {
+                const features = [];
+                const Text_Prefix = config.query.substr(0, 3);
+                try {
+                    let request = 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + config.query;
+                    const response = await fetch(request);
+                    const geojson = await response.json();
+
+                    for (var i = 0; i < geojson.length; i++) {
+                        if (geojson[i].properties.title.indexOf(Text_Prefix) !== -1) {
+                            let point = {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: geojson[i].geometry.coordinates,
+                                },
+                                place_name: geojson[i].properties.title,
+                                properties: geojson[i].properties,
+                                text: geojson[i].properties.title,
+                                place_type: ['place'],
+                                center: geojson[i].geometry.coordinates,
+                            };
+                            features.push(point);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Failed to forwardGeocode with error: ${e}`);
+                }
+                return {
+                    features: features,
+                };
+            },
+        };
+        map.addControl(new MaplibreGeocoder(geocoder_api, { maplibregl: maplibregl }), 'top-left');
+
+        // マップロード
+        map.on('load', function () {
+            // 産総研 シームレス標高タイルソース
+            map.addSource('aist-dem', {
+                type: 'raster-dem',
+                tiles: ['numpng://tiles.gsj.jp/tiles/elev/mixed/{z}/{y}/{x}.png'],
+                attribution: '<a href="https://tiles.gsj.jp/tiles/elev/tiles.html" target="_blank">産業技術総合研究所 シームレス標高タイル(統合DEM)</a>',
+                tileSize: 256,
             });
 
-            // ズーム・回転
-            map.addControl(new maplibregl.NavigationControl());
+            // 産総研 シームレス標高タイルセット
+            map.setTerrain({ source: 'aist-dem', exaggeration: 1 });
 
-            // フルスクリーンモードのオンオフ
-            map.addControl(new maplibregl.FullscreenControl());
+            // 陰影起伏図ソース
+            map.addSource('hillshade', {
+                type: 'raster',
+                tiles: ['https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png'],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#hillshademap" target="_blank">地理院タイル(陰影起伏図)</a>',
+                tileSize: 256,
+            });
 
-            // 現在位置表示
-            map.addControl(
-                new maplibregl.GeolocateControl({
-                    positionOptions: {
-                        enableHighAccuracy: false,
-                    },
-                    fitBoundsOptions: { maxZoom: 18 },
-                    trackUserLocation: true,
-                    showUserLocation: true,
-                })
-            );
-
-            // スケール表示
-            map.addControl(
-                new maplibregl.ScaleControl({
-                    maxWidth: 200,
-                    unit: 'metric',
-                })
-            );
-
-            // Attributionを折りたたみ表示
-            map.addControl(
-                new maplibregl.AttributionControl({
-                    compact: true,
-                    customAttribution: '（<a href="https://twitter.com/shi__works" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/Tsunami-Trace-Map-on-MapLibre-GL-JS" target="_blank">Github</a>） ',
-                })
-            );
-
-            // 3D地形コントロール
-            map.addControl(
-                new maplibregl.TerrainControl({
-                    source: 'aist-dem',
-                    exaggeration: 1, // 標高を強調する倍率
-                })
-            );
-
-            //ジオコーダー（国土地理院 地名検索API）
-            var geocoder_api = {
-                forwardGeocode: async (config) => {
-                    const features = [];
-                    const Text_Prefix = config.query.substr(0, 3);
-                    try {
-                        let request = 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + config.query;
-                        const response = await fetch(request);
-                        const geojson = await response.json();
-
-                        for (var i = 0; i < geojson.length; i++) {
-                            if (geojson[i].properties.title.indexOf(Text_Prefix) !== -1) {
-                                let point = {
-                                    type: 'Feature',
-                                    geometry: {
-                                        type: 'Point',
-                                        coordinates: geojson[i].geometry.coordinates,
-                                    },
-                                    place_name: geojson[i].properties.title,
-                                    properties: geojson[i].properties,
-                                    text: geojson[i].properties.title,
-                                    place_type: ['place'],
-                                    center: geojson[i].geometry.coordinates,
-                                };
-                                features.push(point);
-                            }
-                        }
-                    } catch (e) {
-                        console.error(`Failed to forwardGeocode with error: ${e}`);
-                    }
-                    return {
-                        features: features,
-                    };
+            // 陰影起伏図レイヤ
+            map.addLayer({
+                id: 'hillshade',
+                type: 'raster',
+                source: 'hillshade',
+                minzoom: 2,
+                maxzoom: 18,
+                paint: {
+                    'raster-opacity': 0.3,
                 },
-            };
-            map.addControl(new MaplibreGeocoder(geocoder_api, { maplibregl: maplibregl }), 'top-left');
+            });
 
-            // マップロード
-            map.on('load', function () {
-                // 産総研 シームレス標高タイルソース
-                map.addSource('aist-dem', {
-                    type: 'raster-dem',
-                    tiles: ['numpng://tiles.gsj.jp/tiles/elev/mixed/{z}/{y}/{x}.png'],
-                    attribution: '<a href="https://tiles.gsj.jp/tiles/elev/tiles.html" target="_blank">産業技術総合研究所 シームレス標高タイル(統合DEM)</a>',
-                    tileSize: 256,
-                });
+            // 津波痕跡ベクトルタイル（PMTiles）
+            map.addSource('pmtiles-tsunami', {
+                type: 'vector',
+                url: 'pmtiles://https://xs489works.xsrv.jp/pmtiles-data/tohoku-u_tsunami/clean_data_TRACE20230712115728.pmtiles',
+                attribution: '<a href="https://tsunami-db.irides.tohoku.ac.jp/tsunami/mainframe.php" target="_blank">東北大学 津波痕跡データベース（津波痕跡高情報）を加工して作成</a>',
+            });
 
-                // 産総研 シームレス標高タイルセット
-                map.setTerrain({ source: 'aist-dem', exaggeration: 1 });
+            // 津波痕跡ポイントレイヤ
+            map.addLayer({
+                id: 'tsunami-points-1',
+                type: 'circle',
+                source: 'pmtiles-tsunami',
+                'source-layer': 'clean_data_TRACE20230712115728',
+                minzoom: 1,
+                maxzoom: 23,
+                paint: {
+                    'circle-color': 'rgba(0, 255, 255, 1)',
+                    'circle-radius': 9,
+                    'circle-blur': 2.5,
+                    'circle-opacity': 0.6,
+                },
+            });
 
-                // 陰影起伏図ソース
-                map.addSource('hillshade', {
-                    type: 'raster',
-                    tiles: ['https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png'],
-                    attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#hillshademap" target="_blank">地理院タイル(陰影起伏図)</a>',
-                    tileSize: 256,
-                });
+            // 津波痕跡ポイントレイヤ
+            map.addLayer({
+                id: 'tsunami-points-2',
+                type: 'circle',
+                source: 'pmtiles-tsunami',
+                'source-layer': 'clean_data_TRACE20230712115728',
+                minzoom: 1,
+                maxzoom: 23,
+                paint: {
+                    'circle-color': 'rgba(0, 255, 255, 1)',
+                    'circle-radius': 4.5,
+                    'circle-blur': 1.5,
+                    'circle-opacity': 0.8,
+                },
+            });
 
-                // 陰影起伏図レイヤ
-                map.addLayer({
-                    id: 'hillshade',
-                    type: 'raster',
-                    source: 'hillshade',
-                    minzoom: 2,
-                    maxzoom: 18,
-                    paint: {
-                        'raster-opacity': 0.3,
-                    },
-                });
+            // 津波痕跡ポイントレイヤ
+            map.addLayer({
+                id: 'tsunami-points-3',
+                type: 'circle',
+                source: 'pmtiles-tsunami',
+                'source-layer': 'clean_data_TRACE20230712115728',
+                minzoom: 1,
+                maxzoom: 23,
+                paint: {
+                    'circle-color': 'rgba(255, 255, 255, 1)',
+                    'circle-radius': 1,
+                    'circle-blur': 0,
+                    'circle-opacity': 1,
+                },
+            });
 
-                // 津波痕跡ベクトルタイル（PMTiles）
-                map.addSource('pmtiles-tsunami', {
-                    type: 'vector',
-                    url: 'pmtiles://https://xs489works.xsrv.jp/pmtiles-data/tohoku-u_tsunami/clean_data_TRACE20230712115728.pmtiles',
-                    attribution: '<a href="https://tsunami-db.irides.tohoku.ac.jp/tsunami/mainframe.php" target="_blank">東北大学 津波痕跡データベース（津波痕跡高情報）を加工して作成</a>',
-                });
+            // 津波痕跡GeoJSONソース
+            map.addSource('extrusion_source', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [],
+                },
+            });
 
-                // 津波痕跡ポイントレイヤ
-                map.addLayer({
-                    id: 'tsunami-points-1',
-                    type: 'circle',
-                    source: 'pmtiles-tsunami',
-                    'source-layer': 'clean_data_TRACE20230712115728',
-                    minzoom: 1,
-                    maxzoom: 23,
-                    paint: {
-                        'circle-color': 'rgba(0, 255, 255, 1)',
-                        'circle-radius': 9,
-                        'circle-blur': 2.5,
-                        'circle-opacity': 0.6,
-                    },
-                });
+            // 津波痕跡GeoJSONレイヤ
+            map.addLayer({
+                id: 'extrusion',
+                type: 'fill-extrusion',
+                source: 'extrusion_source',
+                minzoom: 12,
+                maxzoom: 23,
+                paint: {
+                    // 'fill-extrusion-color': 'rgba(0, 127, 255, 1)',
+                    'fill-extrusion-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#FFFF00', '#007FFF'],
+                    'fill-extrusion-height': ['get', 'height'],
+                    'fill-extrusion-base': ['get', 'base'],
+                    'fill-extrusion-opacity': 0.7,
+                },
+            });
 
-                // 津波痕跡ポイントレイヤ
-                map.addLayer({
-                    id: 'tsunami-points-2',
-                    type: 'circle',
-                    source: 'pmtiles-tsunami',
-                    'source-layer': 'clean_data_TRACE20230712115728',
-                    minzoom: 1,
-                    maxzoom: 23,
-                    paint: {
-                        'circle-color': 'rgba(0, 255, 255, 1)',
-                        'circle-radius': 4.5,
-                        'circle-blur': 1.5,
-                        'circle-opacity': 0.8,
-                    },
-                });
-
-                // 津波痕跡ポイントレイヤ
-                map.addLayer({
-                    id: 'tsunami-points-3',
-                    type: 'circle',
-                    source: 'pmtiles-tsunami',
-                    'source-layer': 'clean_data_TRACE20230712115728',
-                    minzoom: 1,
-                    maxzoom: 23,
-                    paint: {
-                        'circle-color': 'rgba(255, 255, 255, 1)',
-                        'circle-radius': 1,
-                        'circle-blur': 0,
-                        'circle-opacity': 1,
-                    },
-                });
-
-                // 津波痕跡GeoJSONソース
-                map.addSource('extrusion_source', {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [],
-                    },
-                });
-
-                // 津波痕跡GeoJSONレイヤ
-                map.addLayer({
-                    id: 'extrusion',
-                    type: 'fill-extrusion',
-                    source: 'extrusion_source',
-                    minzoom: 12,
-                    maxzoom: 23,
-                    paint: {
-                        // 'fill-extrusion-color': 'rgba(0, 127, 255, 1)',
-                        'fill-extrusion-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#FFFF00', '#007FFF'],
-                        'fill-extrusion-height': ['get', 'height'],
-                        'fill-extrusion-base': ['get', 'base'],
-                        'fill-extrusion-opacity': 0.7,
-                    },
-                });
-
-                // ホバー効果（PLATEAU建築物）
-                var hoveredStateId = null;
-                const id = 'extrusion';
-                const sourceName = 'extrusion_source';
-                map.on('mousemove', id, function (e) {
-                    if (e.features.length > 0) {
-                        if (hoveredStateId) {
-                            map.setFeatureState({ source: sourceName, id: hoveredStateId }, { hover: false });
-                        }
-                        hoveredStateId = e.features[0].id;
-                        map.setFeatureState({ source: sourceName, id: hoveredStateId }, { hover: true });
-                    }
-                });
-
-                map.on('mouseleave', id, function () {
+            // ホバー効果（PLATEAU建築物）
+            var hoveredStateId = null;
+            const id = 'extrusion';
+            const sourceName = 'extrusion_source';
+            map.on('mousemove', id, function (e) {
+                if (e.features.length > 0) {
                     if (hoveredStateId) {
                         map.setFeatureState({ source: sourceName, id: hoveredStateId }, { hover: false });
                     }
-                    hoveredStateId = null;
-                });
-
-                // 津波痕跡ポイント（PMTiles）からGeoJSON（円柱ポリゴン）を生成
-                map.on('data', function (e) {
-                    const data = {
-                        type: 'FeatureCollection',
-                        features: [],
-                    };
-                    // レイヤーが更新されたときだけフィーチャを更新
-                    if (e.dataType === 'source' && e.sourceId === 'pmtiles-tsunami') {
-                        const qfs = map.queryRenderedFeatures({
-                            layers: ['tsunami-points-1'],
-                        });
-
-                        // タワーの立体表示の半径をピクセル単位で設定
-                        // const radiusPX = 3;
-
-                        // フィーチャのプロパティを更新
-                        qfs.forEach(function (object, i) {
-                            // タワーの位置（経度と緯度）を取得
-                            const center = object.geometry.coordinates;
-
-                            // 半径を固定値に設定
-                            let radius = 30;
-
-                            // タワーの高さ、半径をプロパティに設定
-                            object.properties.height = object.properties['文献記載_痕跡高（海面基準）_上限'] * 100;
-                            object.properties.radius = radius;
-                            object.properties.base = 0;
-                            object.properties.index = i;
-                            // console.log("object: ", object);
-
-                            // タワーの立体表示の形状を定義
-                            const options = {
-                                steps: 16,
-                                units: 'meters',
-                                properties: object.properties,
-                            };
-
-                            // タワーの位置を中心に半径がradiusの円を生成
-                            const feature = turf.circle(center, radius, options);
-
-                            // 生成した円にタワーのインデックスをIDとして設定
-                            feature.id = i;
-
-                            // 生成した円をFeatureCollectionに追加
-                            data.features.push(feature);
-                        });
-                        // 'extrusion_source'という名前のデータソースを更新し、新しく生成したFeatureCollectionを設定
-                        map.getSource('extrusion_source').setData(data);
-                    }
-                });
-
-                let currentPopup = null; // 現在表示されているポップアップ
-                let currentFeatureId = null; // 最後にマウスがホバーしたフィーチャのID
-
-                // マウスが動いたときにフィーチャ上にいるかをチェックする
-                map.on('mousemove', 'extrusion', function (e) {
-                    // マウスカーソルをポインタに変更
-                    map.getCanvas().style.cursor = 'pointer';
-
-                    // マウスが新しいフィーチャ上に移動したかチェック
-                    const featureId = e.features[0].id;
-                    if (featureId !== currentFeatureId) {
-                        currentFeatureId = featureId;
-
-                        // 以前のポップアップを削除
-                        if (currentPopup) {
-                            currentPopup.remove();
-                        }
-
-                        var coordinates = e.features[0].geometry.type === 'Polygon' ? e.features[0].geometry.coordinates[0][0] : e.features[0].geometry.coordinates;
-                        var tsunamimei = e.features[0].properties['津波名'];
-                        var trace_height_upper = e.features[0].properties['文献記載_痕跡高（海面基準）_上限'];
-                        var measuring_method = e.features[0].properties['測定方法'];
-                        var trace_reliability = e.features[0].properties['痕跡信頼度'];
-
-                        // 新しいポップアップを作成して表示
-                        currentPopup = new maplibregl.Popup({
-                            closeButton: false,
-                            closeOnClick: false,
-                        })
-                            .setLngLat(coordinates)
-                            .setHTML('津波名: ' + tsunamimei + '<br>' + '痕跡高（海面基準）_上限: ' + trace_height_upper + 'm' + '<br>' + '測定方法: ' + measuring_method + '<br>' + '痕跡信頼度: ' + trace_reliability)
-                            .addTo(map);
-                    }
-                });
-
-                // マウスがレイヤーから外れたらポップアップを削除
-                map.on('mouseleave', 'extrusion', function () {
-                    map.getCanvas().style.cursor = '';
-                    if (currentPopup) {
-                        currentPopup.remove();
-                        currentPopup = null;
-                    }
-                    currentFeatureId = null; // マウスがフィーチャー上にないことを示すためにリセット
-                });
-
-                /*
-            // 津波痕跡ラベルレイヤ
-            map.addLayer({
-                'id': 'tsunami-label',
-                'type': 'symbol',
-                'source': 'pmtiles-tsunami',
-                "source-layer": "clean_data_TRACE20230712115728",
-                'minzoom': 10,
-                'maxzoom': 23,
-                'layout': {
-                    'text-field': ['concat', ['get', '文献記載_痕跡高（海面基準）_上限'], 'm'],
-                    'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-                    'text-size': 10,
-                    'text-offset': [1, -1],
-                    'text-allow-overlap': true
-                },
-                'paint': {
-                    'text-color': 'rgba(0, 0, 255, 1)',
-                    'text-halo-color': 'rgba(255, 255, 255,1)',
-                    'text-halo-width': 1
+                    hoveredStateId = e.features[0].id;
+                    map.setFeatureState({ source: sourceName, id: hoveredStateId }, { hover: true });
                 }
             });
-            */
+
+            map.on('mouseleave', id, function () {
+                if (hoveredStateId) {
+                    map.setFeatureState({ source: sourceName, id: hoveredStateId }, { hover: false });
+                }
+                hoveredStateId = null;
             });
-        </script>
-    </body>
+
+            // 津波痕跡ポイント（PMTiles）からGeoJSON（円柱ポリゴン）を生成
+            map.on('data', function (e) {
+                const data = {
+                    type: 'FeatureCollection',
+                    features: [],
+                };
+                // レイヤーが更新されたときだけフィーチャを更新
+                if (e.dataType === 'source' && e.sourceId === 'pmtiles-tsunami') {
+                    const qfs = map.queryRenderedFeatures({
+                        layers: ['tsunami-points-1'],
+                    });
+
+                    // タワーの立体表示の半径をピクセル単位で設定
+                    // const radiusPX = 3;
+
+                    // フィーチャのプロパティを更新
+                    qfs.forEach(function (object, i) {
+                        // タワーの位置（経度と緯度）を取得
+                        const center = object.geometry.coordinates;
+
+                        // 半径を固定値に設定
+                        let radius = 30;
+
+                        // タワーの高さ、半径をプロパティに設定
+                        object.properties.height = object.properties['文献記載_痕跡高（海面基準）_上限'] * 100;
+                        object.properties.radius = radius;
+                        object.properties.base = 0;
+                        object.properties.index = i;
+                        // console.log("object: ", object);
+
+                        // タワーの立体表示の形状を定義
+                        const options = {
+                            steps: 16,
+                            units: 'meters',
+                            properties: object.properties,
+                        };
+
+                        // タワーの位置を中心に半径がradiusの円を生成
+                        const feature = turf.circle(center, radius, options);
+
+                        // 生成した円にタワーのインデックスをIDとして設定
+                        feature.id = i;
+
+                        // 生成した円をFeatureCollectionに追加
+                        data.features.push(feature);
+                    });
+                    // 'extrusion_source'という名前のデータソースを更新し、新しく生成したFeatureCollectionを設定
+                    map.getSource('extrusion_source').setData(data);
+                }
+            });
+
+            let currentPopup = null; // 現在表示されているポップアップ
+            let currentFeatureId = null; // 最後にマウスがホバーしたフィーチャのID
+
+            // マウスが動いたときにフィーチャ上にいるかをチェックする
+            map.on('mousemove', 'extrusion', function (e) {
+                // マウスカーソルをポインタに変更
+                map.getCanvas().style.cursor = 'pointer';
+
+                // マウスが新しいフィーチャ上に移動したかチェック
+                const featureId = e.features[0].id;
+                if (featureId !== currentFeatureId) {
+                    currentFeatureId = featureId;
+
+                    // 以前のポップアップを削除
+                    if (currentPopup) {
+                        currentPopup.remove();
+                    }
+
+                    var coordinates = e.features[0].geometry.type === 'Polygon' ? e.features[0].geometry.coordinates[0][0] : e.features[0].geometry.coordinates;
+                    var tsunamimei = e.features[0].properties['津波名'];
+                    var trace_height_upper = e.features[0].properties['文献記載_痕跡高（海面基準）_上限'];
+                    var measuring_method = e.features[0].properties['測定方法'];
+                    var trace_reliability = e.features[0].properties['痕跡信頼度'];
+
+                    // 新しいポップアップを作成して表示
+                    currentPopup = new maplibregl.Popup({
+                        closeButton: false,
+                        closeOnClick: false,
+                    })
+                        .setLngLat(coordinates)
+                        .setHTML('津波名: ' + tsunamimei + '<br>' + '痕跡高（海面基準）_上限: ' + trace_height_upper + 'm' + '<br>' + '測定方法: ' + measuring_method + '<br>' + '痕跡信頼度: ' + trace_reliability)
+                        .addTo(map);
+                }
+            });
+
+            // マウスがレイヤーから外れたらポップアップを削除
+            map.on('mouseleave', 'extrusion', function () {
+                map.getCanvas().style.cursor = '';
+                if (currentPopup) {
+                    currentPopup.remove();
+                    currentPopup = null;
+                }
+                currentFeatureId = null; // マウスがフィーチャー上にないことを示すためにリセット
+            });
+
+            /*
+        // 津波痕跡ラベルレイヤ
+        map.addLayer({
+            'id': 'tsunami-label',
+            'type': 'symbol',
+            'source': 'pmtiles-tsunami',
+            "source-layer": "clean_data_TRACE20230712115728",
+            'minzoom': 10,
+            'maxzoom': 23,
+            'layout': {
+                'text-field': ['concat', ['get', '文献記載_痕跡高（海面基準）_上限'], 'm'],
+                'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                'text-size': 10,
+                'text-offset': [1, -1],
+                'text-allow-overlap': true
+            },
+            'paint': {
+                'text-color': 'rgba(0, 0, 255, 1)',
+                'text-halo-color': 'rgba(255, 255, 255,1)',
+                'text-halo-width': 1
+            }
+        });
+        */
+        });
+    </script>
+</body>
+
 </html>
